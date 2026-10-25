@@ -60,9 +60,12 @@ function openAuth(mode = 'login') {
   const signup = mode === 'signup';
   const reset = mode === 'reset';
   const updatePassword = mode === 'update-password';
-  openModal(`<div class="modal-kicker">${signup ? 'MAKE A LITTLE SPACE FOR LEARNING' : 'YOUR LEARNNEST SPACE'}</div><h2 id="modalTitle">${signup ? 'Start your learning journey.' : reset ? 'Reset your password.' : updatePassword ? 'Choose a new password.' : 'Welcome back.'}</h2><p class="modal-copy">${signup ? 'Create an account to view and download study notes.' : reset ? 'We’ll email you a secure password reset link.' : updatePassword ? 'Choose a new password for your LearnNest account.' : 'Log in to see your notes and continue learning.'}</p><form id="authForm">${signup ? '<label class="form-field"><span>Your name</span><input name="name" autocomplete="name" placeholder="How should we call you?" required maxlength="80"></label>' : ''}${updatePassword ? '' : '<label class="form-field"><span>Email address</span><input name="email" type="email" autocomplete="email" placeholder="you@example.com" required></label>'}${reset ? '' : '<label class="form-field"><span>Password</span><input name="password" type="password" autocomplete="' + (signup || updatePassword ? 'new-password' : 'current-password') + '" placeholder="At least 8 characters" minlength="8" required></label>'}<button class="primary-button modal-submit" type="submit">${signup ? 'Create my account' : reset ? 'Send reset link' : updatePassword ? 'Save new password' : 'Log in'} <span>→</span></button></form><p class="modal-switch">${signup ? 'Already have an account?' : reset ? 'Remembered your password?' : 'New to LearnNest?'} <button id="switchAuth">${signup || reset || updatePassword ? 'Log in' : 'Create an account'}</button>${!signup && !reset && !updatePassword ? ' · <button id="forgotPassword">Forgot password?</button>' : ''}</p><p class="form-note">Your account is securely managed by Supabase. Your password is never stored by this website.</p>`);
+  openModal(`<div class="modal-kicker">${signup ? 'MAKE A LITTLE SPACE FOR LEARNING' : 'YOUR LEARNNEST SPACE'}</div><h2 id="modalTitle">${signup ? 'Start your learning journey.' : reset ? 'Reset your password.' : updatePassword ? 'Choose a new password.' : 'Welcome back.'}</h2><p class="modal-copy">${signup ? 'Create an account to view and download study notes.' : reset ? 'We’ll email you a secure password reset link.' : updatePassword ? 'Choose a new password for your LearnNest account.' : 'Log in to see your notes and continue learning.'}</p><form id="authForm">${signup ? '<label class="form-field"><span>Your name</span><input name="name" autocomplete="name" placeholder="How should we call you?" required maxlength="80"></label>' : ''}${updatePassword ? '' : '<label class="form-field"><span>Email address</span><input name="email" type="email" autocomplete="email" placeholder="you@example.com" required></label>'}${reset ? '' : '<label class="form-field"><span>Password</span><input name="password" type="password" autocomplete="' + (signup || updatePassword ? 'new-password' : 'current-password') + '" placeholder="At least 8 characters" minlength="8" required></label>'}<button class="primary-button modal-submit" type="submit">${signup ? 'Create my account' : reset ? 'Send reset link' : updatePassword ? 'Save new password' : 'Log in'} <span>→</span></button><p id="authError" class="auth-error" role="alert" hidden></p></form><p class="modal-switch">${signup ? 'Already have an account?' : reset ? 'Remembered your password?' : 'New to LearnNest?'} <button id="switchAuth">${signup || reset || updatePassword ? 'Log in' : 'Create an account'}</button>${!signup && !reset && !updatePassword ? ' · <button id="forgotPassword">Forgot password?</button>' : ''}</p><p class="form-note">Your account is securely managed by Supabase. Your password is never stored by this website.</p>`);
   $('authForm').addEventListener('submit', async event => {
     event.preventDefault();
+    const authError = $('authError');
+    authError.hidden = true;
+    authError.textContent = '';
     const form = new FormData(event.currentTarget);
     const email = String(form.get('email')).trim().toLowerCase();
     const button = event.currentTarget.querySelector('button[type="submit"]');
@@ -70,7 +73,10 @@ function openAuth(mode = 'login') {
     button.innerHTML = 'Please wait…';
     let result;
     if (reset) {
-      result = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.href.split('#')[0] });
+      const callbackUrl = new URL('index.html', window.location.href);
+      callbackUrl.search = '';
+      callbackUrl.hash = '';
+      result = await supabase.auth.resetPasswordForEmail(email, { redirectTo: callbackUrl.href });
       if (!result.error) { closeModal(); toast('Password reset link sent. Check your email.'); }
     } else if (updatePassword) {
       result = await supabase.auth.updateUser({ password: String(form.get('password')) });
@@ -92,7 +98,15 @@ function openAuth(mode = 'login') {
     if (result?.error) {
       button.disabled = false;
       button.innerHTML = `${signup ? 'Create my account' : reset ? 'Send reset link' : updatePassword ? 'Save new password' : 'Log in'} <span>→</span>`;
-      toast(result.error.message, true);
+      const message = String(result.error.message || 'Something went wrong. Please try again.');
+      if (reset) {
+        authError.textContent = /rate.?limit|too many|429|sending.?limit/i.test(message)
+          ? 'Too many password reset emails were requested recently. Please wait a while before trying again. If you already requested one, check your inbox and spam folder.'
+          : message;
+        authError.hidden = false;
+      } else {
+        toast(message, true);
+      }
     }
   });
   $('switchAuth').onclick = () => openAuth(signup || reset || updatePassword ? 'login' : 'signup');
@@ -425,14 +439,20 @@ $('footerLogin').addEventListener('click', event => { event.preventDefault(); na
 $('menuToggle').addEventListener('click', () => $('mainNav').classList.toggle('open'));
 
 if (supabase) {
-  const { data: { session } } = await supabase.auth.getSession();
-  syncHeader(session);
+  let recoveryPromptShown = false;
+  const showRecoveryPrompt = () => {
+    if (recoveryPromptShown) return;
+    recoveryPromptShown = true;
+    setTimeout(() => openAuth('update-password'), 0);
+  };
   supabase.auth.onAuthStateChange((event, nextSession) => {
     syncHeader(nextSession);
     if (document.body.dataset.page === 'notes') setTimeout(() => openNotes(libraryScope), 0);
-    if (event === 'PASSWORD_RECOVERY') setTimeout(() => openAuth('update-password'), 0);
+    if (event === 'PASSWORD_RECOVERY') showRecoveryPrompt();
   });
-  if (window.location.hash.includes('type=recovery')) openAuth('update-password');
+  const { data: { session } } = await supabase.auth.getSession();
+  syncHeader(session);
+  if (window.location.hash.includes('type=recovery')) showRecoveryPrompt();
 } else {
   syncHeader(null);
 }
