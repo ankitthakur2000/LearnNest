@@ -157,3 +157,10 @@ body{background:#0f171c;color:#e8f0eb}
 .main-nav a:focus-visible,.primary-button:focus-visible,.outline-button:focus-visible,.note-icon-action:focus-visible,.note-action:focus-visible,.notes-tab:focus-visible,.notes-view-toggle:focus-visible{outline-color:#91e0ad}
 ::selection{background:#74d7a355;color:#f4fff7}
 @media(max-width:680px){.main-nav.open{background:#111b22}.main-nav a.active{color:#8de0ad}.main-nav a{color:#d0dad4}.notes-search,.notes-filter select,.notes-view-toggle{background:#152229}.notes-library-heading h3{color:#edf3ef}}
+.master-control{display:flex;align-items:center;justify-content:space-between;gap:24px;margin:0 0 28px;padding:24px 28px;border:1px solid #345345;border-radius:16px;background:linear-gradient(135deg,#172a24,#1b292d);box-shadow:0 14px 36px #050b0f35}
+.master-control-copy{max-width:650px}
+.master-control-copy .eyebrow{color:#86ddb0}
+.master-control-copy h3{margin:8px 0 6px;color:#eff7f1;font-family:var(--display);font-size:24px;letter-spacing:-.7px}
+.master-control-copy p{margin:0;color:#afc0b6;font-size:12px;line-height:1.65}
+.master-control>.primary-button{flex:none}
+@media(max-width:680px){.master-control{align-items:stretch;flex-direction:column;padding:20px}.master-control>.primary-button{width:100%}}
