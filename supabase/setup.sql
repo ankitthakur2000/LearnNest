@@ -39,7 +39,7 @@ drop policy if exists "Owners can delete their own notes" on public.notes;
 create policy "Owners can delete their own notes" on public.notes for delete to authenticated using ((select auth.uid()) = user_id);
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-values ('study-notes', 'study-notes', false, 26214400, array['image/jpeg','image/png','image/webp','image/heic','application/pdf'])
+values ('study-notes', 'study-notes', false, 26214400, array['image/jpeg','image/png','image/webp','image/heic','application/pdf','application/vnd.openxmlformats-officedocument.wordprocessingml.document'])
 on conflict (id) do update set public = false, file_size_limit = 26214400, allowed_mime_types = excluded.allowed_mime_types;
 
 drop policy if exists "Owners can upload note files" on storage.objects;
