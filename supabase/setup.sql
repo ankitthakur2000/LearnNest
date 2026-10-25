@@ -21,42 +21,71 @@ create index if not exists notes_public_created_at_idx on public.notes (is_publi
 
 grant usage on schema public to anon, authenticated;
 alter table public.notes enable row level security;
-grant select on public.notes to anon, authenticated;
+revoke all on public.notes from anon;
+grant select, insert, update, delete on public.notes to authenticated;
 grant insert, update, delete on public.notes to authenticated;
 
 drop policy if exists "Anyone can view shared notes" on public.notes;
 drop policy if exists "Owners can view their own notes" on public.notes;
 drop policy if exists "Read shared or own notes" on public.notes;
-create policy "Read shared or own notes" on public.notes for select to anon, authenticated using (is_public = true or (select auth.uid()) = user_id);
+drop policy if exists "LearnNest learners can view published notes" on public.notes;
+create policy "LearnNest learners can view published notes" on public.notes
+for select to authenticated
+using (is_public = true or (select auth.uid()) = '246bcd5e-cf1b-44d3-be9e-9a0acd516e0c'::uuid);
 
 drop policy if exists "Signed in users can add their own notes" on public.notes;
-create policy "Signed in users can add their own notes" on public.notes for insert to authenticated with check ((select auth.uid()) = user_id);
+drop policy if exists "LearnNest owner can add notes" on public.notes;
+create policy "LearnNest owner can add notes" on public.notes
+for insert to authenticated
+with check ((select auth.uid()) = '246bcd5e-cf1b-44d3-be9e-9a0acd516e0c'::uuid);
 
 drop policy if exists "Owners can edit their own notes" on public.notes;
-create policy "Owners can edit their own notes" on public.notes for update to authenticated using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
+drop policy if exists "LearnNest owner can edit notes" on public.notes;
+create policy "LearnNest owner can edit notes" on public.notes
+for update to authenticated
+using ((select auth.uid()) = '246bcd5e-cf1b-44d3-be9e-9a0acd516e0c'::uuid)
+with check ((select auth.uid()) = '246bcd5e-cf1b-44d3-be9e-9a0acd516e0c'::uuid);
 
 drop policy if exists "Owners can delete their own notes" on public.notes;
-create policy "Owners can delete their own notes" on public.notes for delete to authenticated using ((select auth.uid()) = user_id);
+drop policy if exists "LearnNest owner can delete notes" on public.notes;
+create policy "LearnNest owner can delete notes" on public.notes
+for delete to authenticated
+using ((select auth.uid()) = '246bcd5e-cf1b-44d3-be9e-9a0acd516e0c'::uuid);
 
+update public.notes set is_public = true
+where user_id = '246bcd5e-cf1b-44d3-be9e-9a0acd516e0c'::uuid;
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values ('study-notes', 'study-notes', false, 26214400, array['image/jpeg','image/png','image/webp','image/heic','application/pdf','application/vnd.openxmlformats-officedocument.wordprocessingml.document'])
 on conflict (id) do update set public = false, file_size_limit = 26214400, allowed_mime_types = excluded.allowed_mime_types;
 
 drop policy if exists "Owners can upload note files" on storage.objects;
-create policy "Owners can upload note files" on storage.objects for insert to authenticated
-with check (bucket_id = 'study-notes' and (storage.foldername(name))[1] = (select auth.uid())::text);
+drop policy if exists "LearnNest owner can upload note files" on storage.objects;
+create policy "LearnNest owner can upload note files" on storage.objects
+for insert to authenticated
+with check (
+  bucket_id = 'study-notes'
+  and (storage.foldername(name))[1] = '246bcd5e-cf1b-44d3-be9e-9a0acd516e0c'
+);
 
 drop policy if exists "Owners and everyone can read permitted note files" on storage.objects;
-create policy "Owners and everyone can read permitted note files" on storage.objects for select to anon, authenticated
+drop policy if exists "Signed in learners can read published note files" on storage.objects;
+create policy "Signed in learners can read published note files" on storage.objects
+for select to authenticated
 using (
-  bucket_id = 'study-notes' and (
-    ((select auth.uid()) is not null and (storage.foldername(name))[1] = (select auth.uid())::text)
-    or exists (select 1 from public.notes where notes.file_path = storage.objects.name and notes.is_public = true)
+  bucket_id = 'study-notes'
+  and exists (
+    select 1
+    from public.notes as n
+    where n.file_path = storage.objects.name
+      and (n.is_public = true or (select auth.uid()) = '246bcd5e-cf1b-44d3-be9e-9a0acd516e0c'::uuid)
   )
 );
 
 drop policy if exists "Owners can delete note files" on storage.objects;
-create policy "Owners can delete note files" on storage.objects for delete to authenticated
-using (bucket_id = 'study-notes' and (storage.foldername(name))[1] = (select auth.uid())::text);
-
-
+drop policy if exists "LearnNest owner can delete note files" on storage.objects;
+create policy "LearnNest owner can delete note files" on storage.objects
+for delete to authenticated
+using (
+  bucket_id = 'study-notes'
+  and (storage.foldername(name))[1] = '246bcd5e-cf1b-44d3-be9e-9a0acd516e0c'
+);
