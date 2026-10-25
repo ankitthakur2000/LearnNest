@@ -96,13 +96,13 @@ async function signOut() {
 function openUpload() {
   if (!requireBackend()) return;
   if (!currentSession?.user) {
-    openModal(`<div class="modal-kicker">SAVE A LITTLE KNOWLEDGE</div><h2 id="modalTitle">Log in to add your notes.</h2><p class="modal-copy">Create an account first, then upload handwritten pages and PDFs to your private notes library.</p><button class="primary-button modal-submit" id="uploadSignup">Create an account <span>→</span></button><p class="modal-switch">Already have an account? <button id="uploadLogin">Log in</button></p>`);
+    openModal(`<div class="modal-kicker">SAVE A LITTLE KNOWLEDGE</div><h2 id="modalTitle">Log in to add your notes.</h2><p class="modal-copy">Create an account first, then upload handwritten pages, PDFs, or Word documents to your private notes library.</p><button class="primary-button modal-submit" id="uploadSignup">Create an account <span>→</span></button><p class="modal-switch">Already have an account? <button id="uploadLogin">Log in</button></p>`);
     $('uploadSignup').onclick = () => openAuth('signup');
     $('uploadLogin').onclick = () => openAuth('login');
     return;
   }
   stagedFiles = [];
-  openModal(`<div class="modal-kicker">A HOME FOR YOUR HANDWRITTEN NOTES</div><h2 id="modalTitle">Add a page to your nest.</h2><p class="modal-copy">Choose clear photos, scans, or PDFs. New notes are private; you can share or unshare them later.</p><label class="form-field"><span>Subject</span><select id="noteSubject"><option>Biology</option><option>Mathematics</option><option>History</option><option>Physics</option><option>Computer science</option><option>Other</option></select></label><div class="upload-drop" id="uploadDrop"><strong>Drop your files here</strong><small>JPG, PNG, WebP, HEIC, or PDF · up to 25 MB each</small><button id="chooseFiles" type="button">Choose files</button><div class="file-list" id="fileList"></div></div><label class="form-field"><span>Note title (optional)</span><input id="noteTitle" placeholder="e.g. Plant cell revision" maxlength="140"></label><button class="primary-button modal-submit" id="saveNotes" type="button">Upload my notes <span>↑</span></button><p class="form-note">Your files are stored securely. Private notes are visible only to you.</p>`);
+  openModal(`<div class="modal-kicker">A HOME FOR YOUR HANDWRITTEN NOTES</div><h2 id="modalTitle">Add a page to your nest.</h2><p class="modal-copy">Choose clear photos, scans, PDFs, or Word documents. New notes are private; you can share or unshare them later.</p><label class="form-field"><span>Subject</span><select id="noteSubject"><option>Biology</option><option>Mathematics</option><option>History</option><option>Physics</option><option>Computer science</option><option>Other</option></select></label><div class="upload-drop" id="uploadDrop"><strong>Drop your files here</strong><small>JPG, PNG, WebP, HEIC, PDF, or DOCX · up to 25 MB each</small><button id="chooseFiles" type="button">Choose files</button><div class="file-list" id="fileList"></div></div><label class="form-field"><span>Note title (optional)</span><input id="noteTitle" placeholder="e.g. Plant cell revision" maxlength="140"></label><button class="primary-button modal-submit" id="saveNotes" type="button">Upload my notes <span>↑</span></button><p class="form-note">Your files are stored securely. Private notes are visible only to you.</p>`);
   const fileInput = $('fileInput');
   $('chooseFiles').onclick = () => fileInput.click();
   fileInput.onchange = () => { stagedFiles = [...fileInput.files]; fileInput.value = ''; displayStagedFiles(); };
@@ -112,7 +112,13 @@ function openUpload() {
   drop.addEventListener('drop', e => { e.preventDefault(); drop.classList.remove('dragging'); stagedFiles = [...e.dataTransfer.files].filter(validFile); displayStagedFiles(); });
   $('saveNotes').onclick = uploadNotes;
 }
-function validFile(file) { return ['image/jpeg','image/png','image/webp','image/heic','application/pdf'].includes(file.type) && file.size <= 25 * 1024 * 1024; }
+const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+function fileMimeType(file) {
+  if (file.type) return file.type;
+  const extension = file.name.includes('.') ? file.name.split('.').pop().toLowerCase() : '';
+  return extension === 'docx' ? DOCX_MIME : extension === 'pdf' ? 'application/pdf' : '';
+}
+function validFile(file) { return ['image/jpeg','image/png','image/webp','image/heic','application/pdf',DOCX_MIME].includes(fileMimeType(file)) && file.size <= 25 * 1024 * 1024; }
 function displayStagedFiles() {
   const list = $('fileList');
   if (!list) return;
@@ -123,8 +129,8 @@ function displayStagedFiles() {
 }
 function formatSize(bytes) { return bytes > 1024 * 1024 ? (bytes / 1024 / 1024).toFixed(1) + ' MB' : Math.max(1, Math.round(bytes / 1024)) + ' KB'; }
 async function uploadNotes() {
-  if (!stagedFiles.length) return toast('Choose at least one photo or PDF first.', true);
-  if (stagedFiles.some(file => !validFile(file))) return toast('Use JPG, PNG, WebP, HEIC, or PDF files under 25 MB.', true);
+  if (!stagedFiles.length) return toast('Choose at least one photo, PDF, or Word document first.', true);
+  if (stagedFiles.some(file => !validFile(file))) return toast('Use JPG, PNG, WebP, HEIC, PDF, or DOCX files under 25 MB.', true);
   const button = $('saveNotes');
   button.disabled = true;
   const user = currentSession.user;
@@ -133,13 +139,14 @@ async function uploadNotes() {
   const files = [...stagedFiles];
   for (let index = 0; index < files.length; index++) {
     const file = files[index];
+    const fileType = fileMimeType(file);
     button.innerHTML = `Uploading ${index + 1} of ${files.length}…`;
     const extension = file.name.includes('.') ? file.name.split('.').pop().toLowerCase() : 'bin';
     const path = `${user.id}/${crypto.randomUUID()}.${extension}`;
-    const { error: storageError } = await supabase.storage.from('study-notes').upload(path, file, { contentType: file.type, upsert: false });
+    const { error: storageError } = await supabase.storage.from('study-notes').upload(path, file, { contentType: fileType, upsert: false });
     if (storageError) { button.disabled = false; button.innerHTML = 'Upload my notes <span>↑</span>'; return toast(`Upload failed: ${storageError.message}`, true); }
     const title = files.length === 1 && typedTitle ? typedTitle : file.name.replace(/\.[^.]+$/, '');
-    const { error: rowError } = await supabase.from('notes').insert({ user_id: user.id, owner_name: displayName(user), title, subject, file_path: path, file_name: file.name, file_type: file.type, file_size: file.size, is_public: false });
+    const { error: rowError } = await supabase.from('notes').insert({ user_id: user.id, owner_name: displayName(user), title, subject, file_path: path, file_name: file.name, file_type: fileType, file_size: file.size, is_public: false });
     if (rowError) {
       await supabase.storage.from('study-notes').remove([path]);
       button.disabled = false;
@@ -165,8 +172,8 @@ async function openNotes(scope = 'mine') {
     const isOwner = currentSession?.user?.id === note.user_id;
     const owner = shared && !isOwner ? `<small>Shared by ${escapeHtml(note.owner_name || 'a learner')}</small>` : '';
     const controls = isOwner ? `<button class="note-action" data-toggle="${note.id}" title="${note.is_public ? 'Make private' : 'Share publicly'}">${note.is_public ? 'Unshare' : 'Share'}</button><button class="note-action delete-action" data-delete="${note.id}" title="Delete this note">Delete</button>` : '';
-    return `<article class="saved-note"><div class="saved-note-icon">${note.file_type === 'application/pdf' ? 'PDF' : '✎'}</div><div class="saved-note-info"><b>${escapeHtml(note.title)}</b><small>${escapeHtml(note.subject)} · ${note.is_public ? 'Shared' : 'Private'} · ${formatSize(note.file_size)}</small>${owner}</div>${linkData?.signedUrl ? `<a class="open-note" href="${linkData.signedUrl}" target="_blank" rel="noopener" aria-label="Open ${escapeHtml(note.title)}">↗</a>` : ''}${controls}</article>`;
-  })).then(items => items.join('')) : `<div class="no-notes"><span>✳</span><b>${shared ? 'No shared notes yet.' : 'Your note shelf is empty.'}</b><small>${shared ? 'When someone shares a note, it’ll show up here.' : 'Upload a handwritten page or PDF to get started.'}</small></div>`;
+    return `<article class="saved-note"><div class="saved-note-icon">${note.file_type === 'application/pdf' ? 'PDF' : note.file_type === DOCX_MIME ? 'DOCX' : '✎'}</div><div class="saved-note-info"><b>${escapeHtml(note.title)}</b><small>${escapeHtml(note.subject)} · ${note.is_public ? 'Shared' : 'Private'} · ${formatSize(note.file_size)}</small>${owner}</div>${linkData?.signedUrl ? `<a class="open-note" href="${linkData.signedUrl}" target="_blank" rel="noopener" aria-label="Open ${escapeHtml(note.title)}">↗</a>` : ''}${controls}</article>`;
+  })).then(items => items.join('')) : `<div class="no-notes"><span>✳</span><b>${shared ? 'No shared notes yet.' : 'Your note shelf is empty.'}</b><small>${shared ? 'When someone shares a note, it’ll show up here.' : 'Upload a handwritten page, PDF, or Word document to get started.'}</small></div>`;
   openModal(`<div class="modal-kicker">${shared ? 'SHARED BY LEARNERS' : 'YOUR LEARNING SPACE'}</div><h2 id="modalTitle">${shared ? 'Browse study notes.' : 'Your saved notes.'}</h2><p class="modal-copy">${shared ? 'Explore handwritten notes shared by the LearnNest community.' : 'Your saved files are available in your private notes library.'}</p><div class="saved-notes-list">${cards}</div>${!shared ? '<button class="primary-button modal-submit" id="libraryUpload">Upload another note <span>↑</span></button>' : ''}`);
   $('libraryUpload')?.addEventListener('click', openUpload);
   modalBody.querySelectorAll('[data-toggle]').forEach(button => button.addEventListener('click', () => toggleVisibility(button.dataset.toggle)));
