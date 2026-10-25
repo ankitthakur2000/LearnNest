@@ -11,6 +11,7 @@ let toastTimer;
 let stagedFiles = [];
 let currentSession = null;
 let libraryScope = 'mine';
+let noteActionTargets = new Map();
 
 function toast(message, isError = false) {
   toastNode.textContent = message;
@@ -29,6 +30,7 @@ function syncHeader(session) {
   $('loginButton').onclick = user ? signOut : () => openAuth('login');
 }
 function openModal(content) {
+  backdrop.querySelector('.modal')?.classList.remove('wide-modal');
   modalBody.innerHTML = content;
   backdrop.classList.remove('hidden');
   document.body.style.overflow = 'hidden';
@@ -165,19 +167,69 @@ async function openNotes(scope = 'mine') {
   if (scope === 'mine') query = query.eq('user_id', currentSession.user.id);
   else query = query.eq('is_public', true);
   const { data: notes, error } = await query;
-  if (error) return toast(`Couldn’t load notes: ${error.message}`, true);
+  if (error) return toast('Couldn’t load notes: ' + error.message, true);
   const shared = scope === 'shared';
+  noteActionTargets = new Map();
   const cards = notes?.length ? await Promise.all(notes.map(async note => {
-    const { data: linkData } = await supabase.storage.from('study-notes').createSignedUrl(note.file_path, 600);
+    noteActionTargets.set(String(note.id), note);
     const isOwner = currentSession?.user?.id === note.user_id;
-    const owner = shared && !isOwner ? `<small>Shared by ${escapeHtml(note.owner_name || 'a learner')}</small>` : '';
-    const controls = isOwner ? `<button class="note-action" data-toggle="${note.id}" title="${note.is_public ? 'Make private' : 'Share publicly'}">${note.is_public ? 'Unshare' : 'Share'}</button><button class="note-action delete-action" data-delete="${note.id}" title="Delete this note">Delete</button>` : '';
-    return `<article class="saved-note"><div class="saved-note-icon">${note.file_type === 'application/pdf' ? 'PDF' : note.file_type === DOCX_MIME ? 'DOCX' : '✎'}</div><div class="saved-note-info"><b>${escapeHtml(note.title)}</b><small>${escapeHtml(note.subject)} · ${note.is_public ? 'Shared' : 'Private'} · ${formatSize(note.file_size)}</small>${owner}</div>${linkData?.signedUrl ? `<a class="open-note" href="${linkData.signedUrl}" target="_blank" rel="noopener" aria-label="Open ${escapeHtml(note.title)}">↗</a>` : ''}${controls}</article>`;
-  })).then(items => items.join('')) : `<div class="no-notes"><span>✳</span><b>${shared ? 'No shared notes yet.' : 'Your note shelf is empty.'}</b><small>${shared ? 'When someone shares a note, it’ll show up here.' : 'Upload a handwritten page, PDF, or Word document to get started.'}</small></div>`;
-  openModal(`<div class="modal-kicker">${shared ? 'SHARED BY LEARNERS' : 'YOUR LEARNING SPACE'}</div><h2 id="modalTitle">${shared ? 'Browse study notes.' : 'Your saved notes.'}</h2><p class="modal-copy">${shared ? 'Explore handwritten notes shared by the LearnNest community.' : 'Your saved files are available in your private notes library.'}</p><div class="saved-notes-list">${cards}</div>${!shared ? '<button class="primary-button modal-submit" id="libraryUpload">Upload another note <span>↑</span></button>' : ''}`);
+    const fileName = note.file_name || note.title || 'study-note';
+    const isPdf = note.file_type === 'application/pdf' || /\.pdf$/i.test(fileName);
+    const isImage = String(note.file_type || '').startsWith('image/') || /\.(jpe?g|png|webp|heic)$/i.test(fileName);
+    const owner = shared && !isOwner ? '<small>Shared by ' + escapeHtml(note.owner_name || 'a learner') + '</small>' : '';
+    const viewButton = isPdf || isImage
+      ? '<button class="note-icon-action" type="button" data-view-note="' + escapeHtml(note.id) + '" title="View on site" aria-label="View ' + escapeHtml(note.title) + ' on site"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.3-6 9.5-6 9.5 6 9.5 6-3.3 6-9.5 6-9.5-6-9.5-6Z"></path><circle cx="12" cy="12" r="2.6"></circle></svg></button>'
+      : '';
+    const fileActions = '<div class="note-file-actions">' + viewButton + '<button class="note-icon-action" type="button" data-download-note="' + escapeHtml(note.id) + '" title="Download note" aria-label="Download ' + escapeHtml(note.title) + '"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11m0 0 4-4m-4 4-4-4M5 17v4h14v-4"></path></svg></button></div>';
+    const controls = isOwner
+      ? '<div class="note-owner-actions"><button class="note-action" data-toggle="' + escapeHtml(note.id) + '" title="' + (note.is_public ? 'Make private' : 'Share publicly') + '">' + (note.is_public ? 'Unshare' : 'Share') + '</button><button class="note-action delete-action" data-delete="' + escapeHtml(note.id) + '" title="Delete this note">Delete</button></div>'
+      : '';
+    const fileBadge = isPdf ? 'PDF' : note.file_type === DOCX_MIME ? 'DOCX' : '✎';
+    return '<article class="saved-note"><div class="saved-note-icon">' + fileBadge + '</div><div class="saved-note-info"><b>' + escapeHtml(note.title) + '</b><small>' + escapeHtml(note.subject) + ' · ' + (note.is_public ? 'Shared' : 'Private') + ' · ' + formatSize(note.file_size) + '</small>' + owner + '</div>' + fileActions + controls + '</article>';
+  })).then(items => items.join('')) : '<div class="no-notes"><span>✳</span><b>' + (shared ? 'No shared notes yet.' : 'Your note shelf is empty.') + '</b><small>' + (shared ? 'When someone shares a note, it’ll show up here.' : 'Upload a handwritten page, PDF, or Word document to get started.') + '</small></div>';
+  openModal('<div class="modal-kicker">' + (shared ? 'SHARED BY LEARNERS' : 'YOUR LEARNING SPACE') + '</div><h2 id="modalTitle">' + (shared ? 'Browse study notes.' : 'Your saved notes.') + '</h2><p class="modal-copy">' + (shared ? 'Explore handwritten notes shared by the LearnNest community.' : 'Your saved files are available in your private notes library.') + '</p><div class="saved-notes-list">' + cards + '</div>' + (!shared ? '<button class="primary-button modal-submit" id="libraryUpload">Upload another note <span>↑</span></button>' : ''));
   $('libraryUpload')?.addEventListener('click', openUpload);
+  modalBody.querySelectorAll('[data-view-note]').forEach(button => button.addEventListener('click', async () => {
+    button.disabled = true;
+    try { await openNotePreview(button.dataset.viewNote); }
+    finally { if (button.isConnected) button.disabled = false; }
+  }));
+  modalBody.querySelectorAll('[data-download-note]').forEach(button => button.addEventListener('click', async () => {
+    button.disabled = true;
+    try { await downloadNote(button.dataset.downloadNote); }
+    finally { if (button.isConnected) button.disabled = false; }
+  }));
   modalBody.querySelectorAll('[data-toggle]').forEach(button => button.addEventListener('click', () => toggleVisibility(button.dataset.toggle)));
   modalBody.querySelectorAll('[data-delete]').forEach(button => button.addEventListener('click', () => deleteNote(button.dataset.delete)));
+}
+async function openNotePreview(noteId) {
+  const note = noteActionTargets.get(String(noteId));
+  if (!note) return toast('Couldn’t find this note. Please reopen your notes and try again.', true);
+  const { data, error } = await supabase.storage.from('study-notes').createSignedUrl(note.file_path, 3600);
+  if (error || !data?.signedUrl) return toast('Couldn’t open this note: ' + (error?.message || 'A preview link could not be created.'), true);
+  const title = escapeHtml(note.title || note.file_name || 'Study note');
+  const url = escapeHtml(data.signedUrl);
+  const isPdf = note.file_type === 'application/pdf' || /\.pdf$/i.test(note.file_name || '');
+  const viewer = isPdf
+    ? '<iframe class="note-pdf-viewer" src="' + url + '#toolbar=1&navpanes=0" title="PDF preview: ' + title + '" referrerpolicy="no-referrer"></iframe><p class="pdf-viewer-hint">If the preview doesn’t appear, download the PDF to read it.</p>'
+    : '<div class="note-image-preview"><img src="' + url + '" alt="Preview of ' + title + '"></div>';
+  openModal('<div class="modal-kicker">' + (isPdf ? 'PDF NOTE' : 'IMAGE NOTE') + ' · ' + escapeHtml(note.subject || 'Study notes') + '</div><h2 id="modalTitle">' + title + '</h2><div class="note-view-toolbar"><button class="note-back-button" id="backToNotes">← Back to notes</button><button class="note-download-link" id="viewerDownload" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11m0 0 4-4m-4 4-4-4M5 17v4h14v-4"></path></svg> Download</button></div>' + viewer);
+  if (isPdf) backdrop.querySelector('.modal')?.classList.add('wide-modal');
+  $('backToNotes').onclick = () => openNotes(libraryScope);
+  $('viewerDownload').onclick = () => downloadNote(noteId);
+}
+async function downloadNote(noteId) {
+  const note = noteActionTargets.get(String(noteId));
+  if (!note) return toast('Couldn’t find this note. Please reopen your notes and try again.', true);
+  const { data, error } = await supabase.storage.from('study-notes').createSignedUrl(note.file_path, 3600, { download: note.file_name || true });
+  if (error || !data?.signedUrl) return toast('Couldn’t download this note: ' + (error?.message || 'A download link could not be created.'), true);
+  const link = document.createElement('a');
+  link.href = data.signedUrl;
+  link.download = note.file_name || '';
+  link.rel = 'noopener';
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
 }
 async function toggleVisibility(id) {
   const { data: note, error: readError } = await supabase.from('notes').select('is_public').eq('id', id).single();
