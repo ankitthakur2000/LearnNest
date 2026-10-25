@@ -164,3 +164,4 @@ body{background:#0f171c;color:#e8f0eb}
 .master-control-copy p{margin:0;color:#afc0b6;font-size:12px;line-height:1.65}
 .master-control>.primary-button{flex:none}
 @media(max-width:680px){.master-control{align-items:stretch;flex-direction:column;padding:20px}.master-control>.primary-button{width:100%}}
+.auth-error{margin:12px 0 0;padding:11px 13px;border:1px solid #784843;border-radius:9px;background:#322221;color:#ffc9c2;font-size:12px;line-height:1.5}
