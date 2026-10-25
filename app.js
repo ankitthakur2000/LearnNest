@@ -16,6 +16,7 @@ let noteActionTargets = new Map();
 let noteLibraryData = [];
 let noteViewMode = 'grid';
 let activeNotePreviewUrl = null;
+let mammothPromise = null;
 
 function toast(message, isError = false) {
   toastNode.textContent = message;
@@ -139,6 +140,69 @@ function openUpload() {
   $('saveNotes').onclick = uploadNotes;
 }
 const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+function isDocxNote(note) {
+  return note?.file_type === DOCX_MIME || /\.docx$/i.test(note?.file_name || note?.title || '');
+}
+function loadMammoth() {
+  if (window.mammoth) return Promise.resolve(window.mammoth);
+  if (!mammothPromise) {
+    mammothPromise = new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/npm/mammoth@1.13.0/mammoth.browser.min.js';
+      script.async = true;
+      script.crossOrigin = 'anonymous';
+      script.onload = () => window.mammoth ? resolve(window.mammoth) : reject(new Error('The Word reader could not start.'));
+      script.onerror = () => {
+        mammothPromise = null;
+        reject(new Error('The Word reader could not load. Please use Download to open this file.'));
+      };
+      document.head.appendChild(script);
+    });
+  }
+  return mammothPromise;
+}
+const DOCX_ALLOWED_TAGS = new Set(['a','b','blockquote','br','caption','code','dd','div','dl','dt','em','h1','h2','h3','h4','h5','h6','hr','i','img','li','ol','p','pre','s','span','strong','sub','sup','table','tbody','td','tfoot','th','thead','tr','u','ul']);
+const DOCX_BLOCKED_TAGS = new Set(['iframe','object','embed','script','style','svg','math','form','input','video','audio']);
+function sanitizeDocxHtml(html) {
+  const parsed = new DOMParser().parseFromString(String(html || ''), 'text/html');
+  const cleanNode = node => {
+    if (node.nodeType === Node.TEXT_NODE) return document.createTextNode(node.nodeValue || '');
+    if (node.nodeType !== Node.ELEMENT_NODE) return null;
+    const tag = node.tagName.toLowerCase();
+    if (DOCX_BLOCKED_TAGS.has(tag)) return null;
+    const children = Array.from(node.childNodes).map(cleanNode).filter(Boolean);
+    if (!DOCX_ALLOWED_TAGS.has(tag)) {
+      const fragment = document.createDocumentFragment();
+      children.forEach(child => fragment.appendChild(child));
+      return fragment;
+    }
+    const safe = document.createElement(tag);
+    if (tag === 'a') {
+      const href = node.getAttribute('href') || '';
+      if (/^(https?:\/\/|mailto:)/i.test(href)) {
+        safe.setAttribute('href', href);
+        safe.setAttribute('rel', 'noopener noreferrer');
+      }
+    }
+    if (tag === 'img') {
+      const src = node.getAttribute('src') || '';
+      if (!/^data:image\/(?:png|jpe?g|gif|webp);base64,/i.test(src)) return null;
+      safe.setAttribute('src', src);
+      safe.setAttribute('alt', (node.getAttribute('alt') || 'Image in Word document').slice(0, 300));
+    }
+    if (tag === 'td' || tag === 'th') {
+      for (const attribute of ['colspan','rowspan']) {
+        const value = Number(node.getAttribute(attribute));
+        if (Number.isInteger(value) && value >= 1 && value <= 100) safe.setAttribute(attribute, String(value));
+      }
+    }
+    children.forEach(child => safe.appendChild(child));
+    return safe;
+  };
+  const output = document.createElement('div');
+  Array.from(parsed.body.childNodes).map(cleanNode).filter(Boolean).forEach(node => output.appendChild(node));
+  return output.innerHTML;
+}
 function fileMimeType(file) {
   if (file.type) return file.type;
   const extension = file.name.includes('.') ? file.name.split('.').pop().toLowerCase() : '';
@@ -259,15 +323,16 @@ function renderNoteCards() {
   list.innerHTML = filtered.map(note => {
     const fileName = note.file_name || note.title || 'study-note';
     const isPdf = note.file_type === 'application/pdf' || /\.pdf$/i.test(fileName);
+    const isDocx = isDocxNote(note);
     const isImage = String(note.file_type || '').startsWith('image/') || /\.(jpe?g|png|webp|heic)$/i.test(fileName);
-    const viewButton = isPdf || isImage
+    const viewButton = isPdf || isDocx || isImage
       ? '<button class="note-icon-action" type="button" data-view-note="' + escapeHtml(note.id) + '" title="View on site" aria-label="View ' + escapeHtml(note.title) + ' on site"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.3-6 9.5-6 9.5 6 9.5 6-3.3 6-9.5 6-9.5-6-9.5-6Z"></path><circle cx="12" cy="12" r="2.6"></circle></svg></button>'
       : '';
     const fileActions = '<div class="note-file-actions">' + viewButton + '<button class="note-icon-action" type="button" data-download-note="' + escapeHtml(note.id) + '" title="Download note" aria-label="Download ' + escapeHtml(note.title) + '"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11m0 0 4-4m-4 4-4-4M5 17v4h14v-4"></path></svg></button></div>';
     const controls = isAdmin()
       ? '<div class="note-owner-actions"><button class="note-action delete-action" type="button" data-delete="' + escapeHtml(note.id) + '" title="Delete this note">Delete</button></div>'
       : '';
-    const fileBadge = isPdf ? 'PDF' : note.file_type === DOCX_MIME ? 'DOCX' : '✎';
+    const fileBadge = isPdf ? 'PDF' : isDocx ? 'DOCX' : '✎';
     return '<article class="saved-note"><div class="saved-note-icon">' + fileBadge + '</div><div class="saved-note-info"><b>' + escapeHtml(note.title || fileName) + '</b><small>' + escapeHtml(note.subject || 'Other') + ' · ' + (note.is_public ? 'Available to learners' : 'Admin only') + ' · ' + formatSize(note.file_size) + '</small></div><div class="saved-note-actions">' + fileActions + controls + '</div></article>';
   }).join('');
   list.querySelectorAll('[data-view-note]').forEach(button => button.addEventListener('click', async () => {
@@ -289,18 +354,59 @@ async function openNotePreview(noteId) {
   if (!note || !host) return toast('Couldn’t find this note. Reopen your notes and try again.', true);
   const { data, error } = await supabase.storage.from('study-notes').download(note.file_path);
   if (error || !data) return toast('Couldn’t open this note: ' + (error?.message || 'The file could not be loaded.'), true);
+
+  const fileName = note.file_name || note.title || '';
+  const isPdf = note.file_type === 'application/pdf' || /\.pdf$/i.test(fileName);
+  const isDocx = isDocxNote(note);
+  const isImage = String(note.file_type || '').startsWith('image/') || /\.(jpe?g|png|webp|heic)$/i.test(fileName);
+  if (!isPdf && !isDocx && !isImage) return toast('This file type can be downloaded but not previewed here.', true);
+
   clearNotePreviewUrl();
-  activeNotePreviewUrl = URL.createObjectURL(data);
-  const title = escapeHtml(note.title || note.file_name || 'Study note');
-  const url = escapeHtml(activeNotePreviewUrl);
-  const isPdf = note.file_type === 'application/pdf' || /\.pdf$/i.test(note.file_name || '');
-  const viewer = isPdf
-    ? '<iframe class="note-pdf-viewer" src="' + url + '#toolbar=1&navpanes=0" title="PDF preview: ' + title + '" referrerpolicy="no-referrer"></iframe><p class="pdf-viewer-hint">If the preview doesn’t appear, use Download to read the PDF.</p>'
-    : '<div class="note-image-preview"><img src="' + url + '" alt="Preview of ' + title + '"></div>';
+  const previewUrl = isDocx ? '' : URL.createObjectURL(data);
+  if (previewUrl) activeNotePreviewUrl = previewUrl;
+  const title = escapeHtml(note.title || fileName || 'Study note');
+  const url = escapeHtml(previewUrl);
+  const typeLabel = isPdf ? 'PDF NOTE' : isDocx ? 'WORD NOTE' : 'IMAGE NOTE';
+  let viewer;
+  if (isPdf) {
+    viewer = '<iframe class="note-pdf-viewer" src="' + url + '#toolbar=1&navpanes=0" title="PDF preview: ' + title + '" referrerpolicy="no-referrer"></iframe><p class="pdf-viewer-hint">Use the PDF controls to zoom or move between pages. If the preview doesn’t appear, use Download.</p>';
+  } else if (isDocx) {
+    viewer = '<div class="note-docx-viewer"><div class="docx-reader-status" id="docxReaderStatus" role="status">Preparing the Word document…</div><article class="docx-reader-content" id="docxReaderContent" hidden></article><p class="docx-reader-hint" id="docxReaderHint">This reading view keeps the text and common formatting. Page layout may differ slightly from the original Word file.</p></div>';
+  } else {
+    viewer = '<div class="note-image-preview"><img src="' + url + '" alt="Preview of ' + title + '"></div>';
+  }
+
   $('notes').classList.add('reader-open');
-  host.innerHTML = '<div class="note-reader-page"><div class="note-view-toolbar"><button class="note-back-button" id="backToNotes">← Back to notes</button><button class="note-download-link" id="readerDownload" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11m0 0 4-4m-4 4-4-4M5 17v4h14v-4"></path></svg> Download</button></div><div class="note-reader-heading"><div class="eyebrow section-eyebrow">PDF NOTE · ' + escapeHtml(note.subject || 'Study notes') + '</div><h2>' + title + '</h2><p>' + escapeHtml(note.file_name || '') + '</p></div>' + viewer + '</div>';
+  host.innerHTML = '<div class="note-reader-page"><div class="note-view-toolbar"><button class="note-back-button" id="backToNotes">← Back to notes</button><button class="note-download-link" id="readerDownload" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11m0 0 4-4m-4 4-4-4M5 17v4h14v-4"></path></svg> Download original</button></div><div class="note-reader-heading"><div class="eyebrow section-eyebrow">' + typeLabel + ' · ' + escapeHtml(note.subject || 'Study notes') + '</div><h2>' + title + '</h2><p>' + escapeHtml(fileName) + '</p></div>' + viewer + '</div>';
   $('backToNotes').onclick = () => openNotes();
   $('readerDownload').onclick = () => downloadNote(noteId);
+
+  if (isDocx) {
+    const status = $('docxReaderStatus');
+    const content = $('docxReaderContent');
+    try {
+      const mammoth = await loadMammoth();
+      const arrayBuffer = await data.arrayBuffer();
+      const converted = await mammoth.convertToHtml({ arrayBuffer }, {
+        convertImage: mammoth.images.imgElement(image => image.read('base64').then(imageBuffer => ({
+          src: 'data:' + image.contentType + ';base64,' + imageBuffer
+        })))
+      });
+      const cleanHtml = sanitizeDocxHtml(converted.value);
+      if (cleanHtml.trim()) {
+        content.innerHTML = cleanHtml;
+        content.hidden = false;
+        status.hidden = true;
+      } else {
+        status.textContent = 'This Word file has no readable text. You can still download the original.';
+      }
+      if (converted.messages?.some(message => message.type === 'warning')) {
+        $('docxReaderHint').textContent = 'Some Word formatting could not be shown in the reading view. Download the original to see its full layout.';
+      }
+    } catch (error) {
+      status.textContent = 'This Word file could not be displayed here. Use Download original to open it in Word or another document reader.';
+    }
+  }
 }
 async function downloadNote(noteId) {
   if (!currentSession?.user) return openAuth('login');
