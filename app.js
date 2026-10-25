@@ -12,6 +12,8 @@ let stagedFiles = [];
 let currentSession = null;
 let libraryScope = 'mine';
 let noteActionTargets = new Map();
+let noteLibraryData = [];
+let noteViewMode = 'grid';
 
 function toast(message, isError = false) {
   toastNode.textContent = message;
@@ -97,6 +99,7 @@ async function signOut() {
 }
 function openUpload() {
   if (!requireBackend()) return;
+  libraryScope = 'mine';
   if (!currentSession?.user) {
     openModal(`<div class="modal-kicker">SAVE A LITTLE KNOWLEDGE</div><h2 id="modalTitle">Log in to add your notes.</h2><p class="modal-copy">Create an account first, then upload handwritten pages, PDFs, or Word documents to your private notes library.</p><button class="primary-button modal-submit" id="uploadSignup">Create an account <span>→</span></button><p class="modal-switch">Already have an account? <button id="uploadLogin">Log in</button></p>`);
     $('uploadSignup').onclick = () => openAuth('signup');
@@ -163,64 +166,127 @@ async function uploadNotes() {
 async function openNotes(scope = 'mine') {
   if (!requireBackend()) return;
   libraryScope = scope;
+  noteViewMode = 'grid';
+  const host = $('notesLibrary');
+  if (!host) return;
+  $('notes')?.classList.remove('reader-open');
+  if (scope === 'mine' && !currentSession?.user) {
+    noteActionTargets = new Map();
+    noteLibraryData = [];
+    host.innerHTML = '<div class="notes-signin-state"><div class="notes-state-icon">✎</div><div class="eyebrow section-eyebrow">YOUR PERSONAL STUDY SPACE</div><h3>Your notes, all in one place.</h3><p>Log in to upload, organize, view, and download your study notes.</p><div class="notes-state-actions"><button class="primary-button" id="notesLogin">Log in <span>→</span></button><button class="outline-button" id="notesSignup">Create account</button><button class="quiet-link" id="showSharedNotes">Browse shared notes</button></div></div>';
+    $('notesLogin').onclick = () => openAuth('login');
+    $('notesSignup').onclick = () => openAuth('signup');
+    $('showSharedNotes').onclick = () => openNotes('shared');
+    return;
+  }
+  host.innerHTML = '<div class="notes-loading"><span class="loading-dot"></span> Loading your notes…</div>';
   let query = supabase.from('notes').select('id,user_id,owner_name,title,subject,file_path,file_name,file_type,file_size,is_public,created_at').order('created_at', { ascending: false }).limit(100);
   if (scope === 'mine') query = query.eq('user_id', currentSession.user.id);
   else query = query.eq('is_public', true);
   const { data: notes, error } = await query;
-  if (error) return toast('Couldn’t load notes: ' + error.message, true);
+  if (error) {
+    host.innerHTML = '<div class="notes-error-state"><b>We couldn’t load these notes.</b><p>' + escapeHtml(error.message) + '</p><button class="outline-button" id="retryNotes">Try again</button></div>';
+    $('retryNotes').onclick = () => openNotes(scope);
+    return;
+  }
+  noteLibraryData = notes || [];
+  noteActionTargets = new Map(noteLibraryData.map(note => [String(note.id), note]));
   const shared = scope === 'shared';
-  noteActionTargets = new Map();
-  const cards = notes?.length ? await Promise.all(notes.map(async note => {
-    noteActionTargets.set(String(note.id), note);
+  const subjects = [...new Set(noteLibraryData.map(note => String(note.subject || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  const subjectOptions = '<option value="all">All subjects</option>' + subjects.map(subject => '<option value="' + escapeHtml(subject) + '">' + escapeHtml(subject) + '</option>').join('');
+  host.innerHTML =
+    '<div class="notes-library-heading"><div><div class="eyebrow section-eyebrow">' + (shared ? 'LEARN TOGETHER' : 'YOUR LEARNING SPACE') + '</div><h3>' + (shared ? 'Notes from the community.' : 'Your notes shelf.') + '</h3><p>' + (shared ? 'Browse notes other learners have chosen to share.' : 'Search, sort, and open your files right here on LearnNest.') + '</p></div>' + (!shared ? '<button class="primary-button notes-upload-button" id="notesUpload">Upload a note <span>↑</span></button>' : '') + '</div>' +
+    '<div class="notes-library-tabs" role="tablist" aria-label="Notes library"><button class="notes-tab' + (!shared ? ' active' : '') + '" type="button" data-note-scope="mine" role="tab" aria-selected="' + (!shared) + '">My notes</button><button class="notes-tab' + (shared ? ' active' : '') + '" type="button" data-note-scope="shared" role="tab" aria-selected="' + shared + '">Shared notes</button></div>' +
+    '<div class="notes-tools"><label class="notes-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8"></circle><path d="m16 16 5 5"></path></svg><input id="noteSearch" type="search" placeholder="Search notes by title or subject" autocomplete="off" aria-label="Search notes"></label><label class="notes-filter"><span>Subject</span><select id="noteSubjectFilter">' + subjectOptions + '</select></label><label class="notes-filter"><span>Sort</span><select id="noteSort"><option value="newest">Newest first</option><option value="oldest">Oldest first</option><option value="title">Title A–Z</option></select></label><button class="notes-view-toggle" id="noteViewToggle" type="button" aria-label="Switch to list view"><span aria-hidden="true">☷</span> List view</button></div>' +
+    '<div class="notes-results"><span id="notesResultCount"></span><span>' + (shared ? 'Shared by learners' : 'Private to your account unless you share') + '</span></div>' +
+    '<div class="notes-library-list" id="notesList" data-layout="grid"></div>';
+  $('notesUpload')?.addEventListener('click', openUpload);
+  host.querySelectorAll('[data-note-scope]').forEach(button => button.addEventListener('click', () => openNotes(button.dataset.noteScope)));
+  $('noteSearch').addEventListener('input', renderNoteCards);
+  $('noteSubjectFilter').addEventListener('change', renderNoteCards);
+  $('noteSort').addEventListener('change', renderNoteCards);
+  $('noteViewToggle').addEventListener('click', () => {
+    noteViewMode = noteViewMode === 'grid' ? 'list' : 'grid';
+    $('noteViewToggle').innerHTML = '<span aria-hidden="true">' + (noteViewMode === 'grid' ? '☷' : '▦') + '</span> ' + (noteViewMode === 'grid' ? 'List view' : 'Grid view');
+    $('noteViewToggle').setAttribute('aria-label', 'Switch to ' + (noteViewMode === 'grid' ? 'list' : 'grid') + ' view');
+    renderNoteCards();
+  });
+  renderNoteCards();
+}
+function renderNoteCards() {
+  const list = $('notesList');
+  if (!list) return;
+  const search = String($('noteSearch')?.value || '').trim().toLowerCase();
+  const subject = $('noteSubjectFilter')?.value || 'all';
+  const sortBy = $('noteSort')?.value || 'newest';
+  const filtered = noteLibraryData.filter(note => {
+    const matchesSubject = subject === 'all' || note.subject === subject;
+    const searchable = [note.title, note.subject, note.file_name].join(' ').toLowerCase();
+    return matchesSubject && searchable.includes(search);
+  });
+  filtered.sort((a, b) => {
+    if (sortBy === 'title') return String(a.title || '').localeCompare(String(b.title || ''));
+    const first = Date.parse(a.created_at || '') || 0;
+    const second = Date.parse(b.created_at || '') || 0;
+    return sortBy === 'oldest' ? first - second : second - first;
+  });
+  $('notesResultCount').textContent = filtered.length + (filtered.length === 1 ? ' note' : ' notes');
+  list.dataset.layout = noteViewMode;
+  if (!filtered.length) {
+    const hasNotes = noteLibraryData.length > 0;
+    list.innerHTML = '<div class="notes-empty-state"><span>✳</span><b>' + (hasNotes ? 'No notes match those filters.' : (libraryScope === 'shared' ? 'No shared notes yet.' : 'Your notes shelf is ready.')) + '</b><small>' + (hasNotes ? 'Try another search or subject.' : (libraryScope === 'shared' ? 'When someone shares a note, it’ll appear here.' : 'Upload your first photo, PDF, or Word document.')) + '</small>' + (!hasNotes && libraryScope === 'mine' ? '<button class="primary-button" id="emptyUpload">Upload your first note <span>↑</span></button>' : '') + '</div>';
+    $('emptyUpload')?.addEventListener('click', openUpload);
+    return;
+  }
+  list.innerHTML = filtered.map(note => {
     const isOwner = currentSession?.user?.id === note.user_id;
     const fileName = note.file_name || note.title || 'study-note';
     const isPdf = note.file_type === 'application/pdf' || /\.pdf$/i.test(fileName);
     const isImage = String(note.file_type || '').startsWith('image/') || /\.(jpe?g|png|webp|heic)$/i.test(fileName);
-    const owner = shared && !isOwner ? '<small>Shared by ' + escapeHtml(note.owner_name || 'a learner') + '</small>' : '';
     const viewButton = isPdf || isImage
       ? '<button class="note-icon-action" type="button" data-view-note="' + escapeHtml(note.id) + '" title="View on site" aria-label="View ' + escapeHtml(note.title) + ' on site"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.3-6 9.5-6 9.5 6 9.5 6-3.3 6-9.5 6-9.5-6-9.5-6Z"></path><circle cx="12" cy="12" r="2.6"></circle></svg></button>'
       : '';
     const fileActions = '<div class="note-file-actions">' + viewButton + '<button class="note-icon-action" type="button" data-download-note="' + escapeHtml(note.id) + '" title="Download note" aria-label="Download ' + escapeHtml(note.title) + '"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11m0 0 4-4m-4 4-4-4M5 17v4h14v-4"></path></svg></button></div>';
     const controls = isOwner
-      ? '<div class="note-owner-actions"><button class="note-action" data-toggle="' + escapeHtml(note.id) + '" title="' + (note.is_public ? 'Make private' : 'Share publicly') + '">' + (note.is_public ? 'Unshare' : 'Share') + '</button><button class="note-action delete-action" data-delete="' + escapeHtml(note.id) + '" title="Delete this note">Delete</button></div>'
+      ? '<div class="note-owner-actions"><button class="note-action" type="button" data-toggle="' + escapeHtml(note.id) + '" title="' + (note.is_public ? 'Make private' : 'Share publicly') + '">' + (note.is_public ? 'Unshare' : 'Share') + '</button><button class="note-action delete-action" type="button" data-delete="' + escapeHtml(note.id) + '" title="Delete this note">Delete</button></div>'
       : '';
     const fileBadge = isPdf ? 'PDF' : note.file_type === DOCX_MIME ? 'DOCX' : '✎';
-    return '<article class="saved-note"><div class="saved-note-icon">' + fileBadge + '</div><div class="saved-note-info"><b>' + escapeHtml(note.title) + '</b><small>' + escapeHtml(note.subject) + ' · ' + (note.is_public ? 'Shared' : 'Private') + ' · ' + formatSize(note.file_size) + '</small>' + owner + '</div>' + fileActions + controls + '</article>';
-  })).then(items => items.join('')) : '<div class="no-notes"><span>✳</span><b>' + (shared ? 'No shared notes yet.' : 'Your note shelf is empty.') + '</b><small>' + (shared ? 'When someone shares a note, it’ll show up here.' : 'Upload a handwritten page, PDF, or Word document to get started.') + '</small></div>';
-  openModal('<div class="modal-kicker">' + (shared ? 'SHARED BY LEARNERS' : 'YOUR LEARNING SPACE') + '</div><h2 id="modalTitle">' + (shared ? 'Browse study notes.' : 'Your saved notes.') + '</h2><p class="modal-copy">' + (shared ? 'Explore handwritten notes shared by the LearnNest community.' : 'Your saved files are available in your private notes library.') + '</p><div class="saved-notes-list">' + cards + '</div>' + (!shared ? '<button class="primary-button modal-submit" id="libraryUpload">Upload another note <span>↑</span></button>' : ''));
-  $('libraryUpload')?.addEventListener('click', openUpload);
-  modalBody.querySelectorAll('[data-view-note]').forEach(button => button.addEventListener('click', async () => {
+    const sharedBy = libraryScope === 'shared' && !isOwner ? '<small>Shared by ' + escapeHtml(note.owner_name || 'a learner') + '</small>' : '';
+    return '<article class="saved-note"><div class="saved-note-icon">' + fileBadge + '</div><div class="saved-note-info"><b>' + escapeHtml(note.title || fileName) + '</b><small>' + escapeHtml(note.subject || 'Other') + ' · ' + (note.is_public ? 'Shared' : 'Private') + ' · ' + formatSize(note.file_size) + '</small>' + sharedBy + '</div><div class="saved-note-actions">' + fileActions + controls + '</div></article>';
+  }).join('');
+  list.querySelectorAll('[data-view-note]').forEach(button => button.addEventListener('click', async () => {
     button.disabled = true;
     try { await openNotePreview(button.dataset.viewNote); }
     finally { if (button.isConnected) button.disabled = false; }
   }));
-  modalBody.querySelectorAll('[data-download-note]').forEach(button => button.addEventListener('click', async () => {
+  list.querySelectorAll('[data-download-note]').forEach(button => button.addEventListener('click', async () => {
     button.disabled = true;
     try { await downloadNote(button.dataset.downloadNote); }
     finally { if (button.isConnected) button.disabled = false; }
   }));
-  modalBody.querySelectorAll('[data-toggle]').forEach(button => button.addEventListener('click', () => toggleVisibility(button.dataset.toggle)));
-  modalBody.querySelectorAll('[data-delete]').forEach(button => button.addEventListener('click', () => deleteNote(button.dataset.delete)));
+  list.querySelectorAll('[data-toggle]').forEach(button => button.addEventListener('click', () => toggleVisibility(button.dataset.toggle)));
+  list.querySelectorAll('[data-delete]').forEach(button => button.addEventListener('click', () => deleteNote(button.dataset.delete)));
 }
 async function openNotePreview(noteId) {
   const note = noteActionTargets.get(String(noteId));
-  if (!note) return toast('Couldn’t find this note. Please reopen your notes and try again.', true);
+  const host = $('notesLibrary');
+  if (!note || !host) return toast('Couldn’t find this note. Reopen your notes and try again.', true);
   const { data, error } = await supabase.storage.from('study-notes').createSignedUrl(note.file_path, 3600);
   if (error || !data?.signedUrl) return toast('Couldn’t open this note: ' + (error?.message || 'A preview link could not be created.'), true);
   const title = escapeHtml(note.title || note.file_name || 'Study note');
   const url = escapeHtml(data.signedUrl);
   const isPdf = note.file_type === 'application/pdf' || /\.pdf$/i.test(note.file_name || '');
   const viewer = isPdf
-    ? '<iframe class="note-pdf-viewer" src="' + url + '#toolbar=1&navpanes=0" title="PDF preview: ' + title + '" referrerpolicy="no-referrer"></iframe><p class="pdf-viewer-hint">If the preview doesn’t appear, download the PDF to read it.</p>'
+    ? '<iframe class="note-pdf-viewer" src="' + url + '#toolbar=1&navpanes=0" title="PDF preview: ' + title + '" referrerpolicy="no-referrer"></iframe><p class="pdf-viewer-hint">If the preview doesn’t appear, use Download to read the PDF.</p>'
     : '<div class="note-image-preview"><img src="' + url + '" alt="Preview of ' + title + '"></div>';
-  openModal('<div class="modal-kicker">' + (isPdf ? 'PDF NOTE' : 'IMAGE NOTE') + ' · ' + escapeHtml(note.subject || 'Study notes') + '</div><h2 id="modalTitle">' + title + '</h2><div class="note-view-toolbar"><button class="note-back-button" id="backToNotes">← Back to notes</button><button class="note-download-link" id="viewerDownload" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11m0 0 4-4m-4 4-4-4M5 17v4h14v-4"></path></svg> Download</button></div>' + viewer);
-  if (isPdf) backdrop.querySelector('.modal')?.classList.add('wide-modal');
+  $('notes').classList.add('reader-open');
+  host.innerHTML = '<div class="note-reader-page"><div class="note-view-toolbar"><button class="note-back-button" id="backToNotes">← Back to notes</button><button class="note-download-link" id="readerDownload" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11m0 0 4-4m-4 4-4-4M5 17v4h14v-4"></path></svg> Download</button></div><div class="note-reader-heading"><div class="eyebrow section-eyebrow">' + (isPdf ? 'PDF NOTE' : 'IMAGE NOTE') + ' · ' + escapeHtml(note.subject || 'Study notes') + '</div><h2>' + title + '</h2><p>' + escapeHtml(note.file_name || '') + '</p></div>' + viewer + '</div>';
   $('backToNotes').onclick = () => openNotes(libraryScope);
-  $('viewerDownload').onclick = () => downloadNote(noteId);
+  $('readerDownload').onclick = () => downloadNote(noteId);
 }
 async function downloadNote(noteId) {
   const note = noteActionTargets.get(String(noteId));
-  if (!note) return toast('Couldn’t find this note. Please reopen your notes and try again.', true);
+  if (!note) return toast('Couldn’t find this note. Reopen your notes and try again.', true);
   const { data, error } = await supabase.storage.from('study-notes').createSignedUrl(note.file_path, 3600, { download: note.file_name || true });
   if (error || !data?.signedUrl) return toast('Couldn’t download this note: ' + (error?.message || 'A download link could not be created.'), true);
   const link = document.createElement('a');
@@ -296,34 +362,81 @@ function showLesson(courseId, index) {
     showCourse(courseId);
   };
 }
+const pageTitles = {
+  home: 'LearnNest — Learn something new, every day',
+  courses: 'Courses · LearnNest',
+  how: 'How LearnNest works',
+  notes: 'Study notes · LearnNest'
+};
+function routeFromHash() {
+  const route = window.location.hash.slice(1).split(/[?&]/)[0];
+  return Object.prototype.hasOwnProperty.call(pageTitles, route) ? route : 'home';
+}
+function navigatePage(page, options = {}) {
+  if (!Object.prototype.hasOwnProperty.call(pageTitles, page)) page = 'home';
+  if (options.scope) libraryScope = options.scope;
+  document.body.dataset.page = page;
+  document.querySelectorAll('main > [data-page-view]').forEach(section => {
+    const visible = section.dataset.pageView === page;
+    section.classList.toggle('page-view-hidden', !visible);
+    section.setAttribute('aria-hidden', String(!visible));
+    if (visible) {
+      section.classList.remove('page-view-enter');
+      void section.offsetWidth;
+      section.classList.add('page-view-enter');
+    }
+  });
+  document.querySelectorAll('[data-page-link]').forEach(link => {
+    const active = link.dataset.pageLink === page;
+    link.classList.toggle('active', active);
+    if (active) link.setAttribute('aria-current', 'page');
+    else link.removeAttribute('aria-current');
+  });
+  document.title = pageTitles[page];
+  $('mainNav').classList.remove('open');
+  if (options.updateHistory !== false && window.location.hash !== '#' + page) {
+    window.history.pushState({ learnNestPage: page }, '', '#' + page);
+  }
+  if (options.scroll !== false) window.scrollTo({ top: 0, behavior: 'smooth' });
+  if (page === 'notes') openNotes(options.scope || libraryScope);
+}
 document.querySelectorAll('[data-course-open]').forEach(link => link.addEventListener('click', event => {
   event.preventDefault();
   showCourse(link.dataset.courseOpen);
 }));
+document.addEventListener('click', event => {
+  if (event.defaultPrevented) return;
+  const link = event.target.closest('a[href^="#"]');
+  if (!link || link.hasAttribute('data-course-open')) return;
+  const route = link.getAttribute('href').slice(1);
+  if (!Object.prototype.hasOwnProperty.call(pageTitles, route)) return;
+  event.preventDefault();
+  navigatePage(route);
+});
+window.addEventListener('popstate', () => navigatePage(routeFromHash(), { updateHistory: false, scroll: false }));
 
 $('modalClose').addEventListener('click', closeModal);
 backdrop.addEventListener('click', event => { if (event.target === backdrop) closeModal(); });
 document.addEventListener('keydown', event => { if (event.key === 'Escape') closeModal(); });
-$('signupButton').addEventListener('click', () => currentSession?.user ? openNotes('mine') : openAuth('signup'));
+$('signupButton').addEventListener('click', () => currentSession?.user ? navigatePage('notes', { scope: 'mine' }) : openAuth('signup'));
 $('ctaSignup').addEventListener('click', () => openAuth('signup'));
 $('uploadButton').addEventListener('click', openUpload);
-$('heroNotesButton').addEventListener('click', openUpload);
-$('browseNotes').addEventListener('click', () => openNotes('shared'));
-$('footerUpload').addEventListener('click', event => { event.preventDefault(); openUpload(); });
-$('footerLogin').addEventListener('click', event => { event.preventDefault(); currentSession?.user ? openNotes('mine') : openAuth('login'); });
+$('heroNotesButton').addEventListener('click', () => { navigatePage('notes', { scope: 'mine' }); openUpload(); });
+$('browseNotes').addEventListener('click', () => navigatePage('notes', { scope: 'shared' }));
+$('footerUpload').addEventListener('click', event => { event.preventDefault(); navigatePage('notes', { scope: 'mine' }); openUpload(); });
+$('footerLogin').addEventListener('click', event => { event.preventDefault(); navigatePage('notes', { scope: 'mine' }); if (!currentSession?.user) openAuth('login'); });
 $('menuToggle').addEventListener('click', () => $('mainNav').classList.toggle('open'));
-for (const link of document.querySelectorAll('.main-nav a')) link.addEventListener('click', () => $('mainNav').classList.remove('open'));
 
 if (supabase) {
   const { data: { session } } = await supabase.auth.getSession();
   syncHeader(session);
   supabase.auth.onAuthStateChange((event, nextSession) => {
     syncHeader(nextSession);
+    if (document.body.dataset.page === 'notes') setTimeout(() => openNotes(libraryScope), 0);
     if (event === 'PASSWORD_RECOVERY') setTimeout(() => openAuth('update-password'), 0);
   });
   if (window.location.hash.includes('type=recovery')) openAuth('update-password');
 } else {
   syncHeader(null);
 }
-
-
+navigatePage(routeFromHash(), { updateHistory: false, scroll: false });
