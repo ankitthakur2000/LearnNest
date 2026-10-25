@@ -37,7 +37,6 @@ function syncHeader(session) {
   $('loginButton').textContent = user ? 'Log out' : 'Log in';
   $('signupButton').innerHTML = user ? `${escapeHtml(displayName(user).split(' ')[0])}’s notes <span>↗</span>` : 'Get started <span>↗</span>';
   $('loginButton').onclick = user ? signOut : () => openAuth('login');
-  if ($('uploadButton')) $('uploadButton').hidden = !isAdmin();
 }
 function openModal(content) {
   backdrop.querySelector('.modal')?.classList.remove('wide-modal');
@@ -201,11 +200,12 @@ async function openNotes() {
   const subjects = [...new Set(noteLibraryData.map(note => String(note.subject || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
   const subjectOptions = '<option value="all">All subjects</option>' + subjects.map(subject => '<option value="' + escapeHtml(subject) + '">' + escapeHtml(subject) + '</option>').join('');
   host.innerHTML =
-    '<div class="notes-library-heading"><div><div class="eyebrow section-eyebrow">LEARNNEST STUDY LIBRARY</div><h3>Study notes, all in one place.</h3><p>Browse the notes already uploaded. Sign in to open PDFs and download files.</p></div>' + (isAdmin() ? '<button class="primary-button notes-upload-button" id="notesUpload">Upload study notes <span>↑</span></button>' : '') + '</div>' +
+    (isAdmin() ? '<aside class="master-control"><div class="master-control-copy"><div class="eyebrow">OWNER ONLY · YOUR MASTER CONTROL</div><h3>Master Control</h3><p>Only your LearnNest owner login can add or remove notes. Other signed-in accounts can view and download them.</p></div><button class="primary-button" id="masterUploadButton">Upload study notes <span>↑</span></button></aside>' : '') +
+    '<div class="notes-library-heading"><div><div class="eyebrow section-eyebrow">LEARNNEST STUDY LIBRARY</div><h3>Study notes, all in one place.</h3><p>Browse the notes already uploaded. Sign in to open PDFs and download files.</p></div>' +  '</div>' +
     '<div class="notes-tools"><label class="notes-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8"></circle><path d="m16 16 5 5"></path></svg><input id="noteSearch" type="search" placeholder="Search notes by title or subject" autocomplete="off" aria-label="Search notes"></label><label class="notes-filter"><span>Subject</span><select id="noteSubjectFilter">' + subjectOptions + '</select></label><label class="notes-filter"><span>Sort</span><select id="noteSort"><option value="newest">Newest first</option><option value="oldest">Oldest first</option><option value="title">Title A–Z</option></select></label><button class="notes-view-toggle" id="noteViewToggle" type="button" aria-label="Switch to list view"><span aria-hidden="true">☷</span> List view</button></div>' +
     '<div class="notes-results"><span id="notesResultCount"></span><span>Available to signed-in learners</span></div>' +
     '<div class="notes-library-list" id="notesList" data-layout="grid"></div>';
-  $('notesUpload')?.addEventListener('click', openUpload);
+  $('masterUploadButton')?.addEventListener('click', openUpload);
   $('noteSearch').addEventListener('input', renderNoteCards);
   $('noteSubjectFilter').addEventListener('change', renderNoteCards);
   $('noteSort').addEventListener('change', renderNoteCards);
@@ -420,7 +420,6 @@ backdrop.addEventListener('click', event => { if (event.target === backdrop) clo
 document.addEventListener('keydown', event => { if (event.key === 'Escape') closeModal(); });
 $('signupButton').addEventListener('click', () => currentSession?.user ? window.location.assign('notes.html') : openAuth('signup'));
 $('ctaSignup')?.addEventListener('click', () => openAuth('signup'));
-$('uploadButton').addEventListener('click', openUpload);
 $('browseNotes').addEventListener('click', () => { if (document.body.dataset.defaultPage === 'notes') $('notesLibrary').scrollIntoView({ behavior: 'smooth' }); else window.location.href = 'notes.html'; });
 $('footerLogin').addEventListener('click', event => { event.preventDefault(); navigatePage('notes', { scope: 'mine' }); if (!currentSession?.user) openAuth('login'); });
 $('menuToggle').addEventListener('click', () => $('mainNav').classList.toggle('open'));
