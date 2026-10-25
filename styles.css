@@ -165,3 +165,57 @@ body{background:#0f171c;color:#e8f0eb}
 .master-control>.primary-button{flex:none}
 @media(max-width:680px){.master-control{align-items:stretch;flex-direction:column;padding:20px}.master-control>.primary-button{width:100%}}
 .auth-error{margin:12px 0 0;padding:11px 13px;border:1px solid #784843;border-radius:9px;background:#322221;color:#ffc9c2;font-size:12px;line-height:1.5}
+.note-docx-viewer{max-height:min(76vh,1050px);min-height:clamp(320px,58vh,680px);overflow:auto;padding:clamp(18px,4vw,56px);border:1px solid #dfe3eb;border-radius:12px;background:#fff;color:#283244;box-shadow:0 10px 32px #080b1812}
+.docx-reader-content{max-width:850px;margin:0 auto;font-size:16px;line-height:1.75;overflow-wrap:anywhere}
+.docx-reader-content p{margin:0 0 1em}
+.docx-reader-content h1,.docx-reader-content h2,.docx-reader-content h3,.docx-reader-content h4,.docx-reader-content h5,.docx-reader-content h6{margin:1.2em 0 .55em;color:#202a35;line-height:1.25}
+.docx-reader-content h1{font-size:2em}.docx-reader-content h2{font-size:1.65em}.docx-reader-content h3{font-size:1.35em}
+.docx-reader-content ul,.docx-reader-content ol{padding-left:1.6em;margin:0 0 1em}
+.docx-reader-content li{margin:.25em 0}
+.docx-reader-content table{width:100%;border-collapse:collapse;margin:1.2em 0;font-size:.95em}
+.docx-reader-content th,.docx-reader-content td{border:1px solid #d8deea;padding:9px 11px;vertical-align:top;text-align:left}
+.docx-reader-content th{background:#f1f2f8;font-weight:700}
+.docx-reader-content img{display:block;max-width:100%;height:auto;margin:16px auto}
+.docx-reader-content blockquote{margin:1em 0;padding:10px 16px;border-left:3px solid #7569e8;background:#f6f5ff}
+.docx-reader-content pre,.docx-reader-content code{white-space:pre-wrap;overflow-wrap:anywhere}
+.docx-reader-content a{color:#5145d4;text-decoration:underline}
+.docx-reader-status{min-height:210px;display:grid;place-items:center;text-align:center;color:#566174;font-size:14px;line-height:1.6}
+.docx-reader-hint{max-width:850px;margin:18px auto 0;color:#758092;font-size:11px;line-height:1.6}
+.note-pdf-viewer{height:clamp(320px,72vh,1050px);min-height:320px}
+@media(max-width:900px){.notes-section#notes{padding-left:clamp(20px,4vw,40px);padding-right:clamp(20px,4vw,40px)}.note-reader-page{width:100%}.notes-library-list{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:680px){
+  .notes-section#notes{padding:38px 16px 42px}
+  .notes-section#notes.reader-open{padding-top:22px}
+  .notes-library-heading h3{font-size:clamp(22px,6vw,27px)}
+  .notes-tools{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:9px}
+  .notes-search,.notes-view-toggle{grid-column:1/-1}
+  .notes-search{min-width:0}
+  .notes-filter{min-width:0}
+  .notes-filter select{width:100%;font-size:11px}
+  .notes-results{align-items:flex-start;flex-direction:column;gap:5px}
+  .saved-note{display:grid;grid-template-columns:40px minmax(0,1fr);align-items:center;gap:10px;padding:12px}
+  .saved-note-icon{width:40px;height:40px}
+  .saved-note-info{min-width:0}
+  .saved-note-info b{font-size:12px}
+  .saved-note-actions{grid-column:1/-1;display:flex;justify-content:flex-end;width:100%;margin:0}
+  .note-file-actions,.note-owner-actions{gap:6px}
+  .note-icon-action{width:36px;height:36px}
+  .note-owner-actions .note-action{padding:8px 10px;font-size:10px}
+  .note-view-toolbar{position:sticky;top:68px;z-index:2;padding:7px 0;background:#f5f6fb}
+  .note-download-link{padding:10px 12px;font-size:11px}
+  .note-reader-heading h2{font-size:clamp(23px,7vw,30px)}
+  .note-pdf-viewer{height:68svh;min-height:300px}
+  .note-docx-viewer{max-height:68svh;min-height:280px;padding:20px 15px}
+  .docx-reader-content{font-size:14px;line-height:1.7}
+  .docx-reader-content th,.docx-reader-content td{padding:7px}
+}
+@media(max-width:390px){
+  .notes-tools{grid-template-columns:minmax(0,1fr)}
+  .notes-search,.notes-view-toggle{grid-column:1}
+  .notes-view-toggle{justify-self:start}
+  .saved-note-actions{justify-content:flex-start}
+  .note-view-toolbar{gap:8px}
+  .note-download-link{padding:9px 10px;font-size:10px}
+  .docx-reader-content{font-size:13px}
+}
+@media(min-width:1200px){.note-reader-page{max-width:1440px}.notes-library-list[data-layout=grid]{grid-template-columns:repeat(2,minmax(0,1fr))}}
