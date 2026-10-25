@@ -9,3 +9,151 @@
 @media(max-width:900px){.main-nav{gap:4px;margin-left:10px}.main-nav a{padding:8px 9px;font-size:12px}.notes-tools{grid-template-columns:minmax(180px,1fr) 150px 145px}.notes-view-toggle{grid-column:3;justify-self:end}.notes-library-list{grid-template-columns:1fr}.saved-note{min-height:85px}}
 @media(max-width:680px){main{min-height:calc(100vh - 65px)}.main-nav{gap:18px}.main-nav a{padding:0;border-radius:0;background:transparent!important}.main-nav a.active{color:#5145d4}.notes-section#notes{padding:54px 18px 48px}.notes-library-wrap{margin-top:24px;padding-top:22px}.notes-library-heading{align-items:flex-start;flex-direction:column;gap:12px}.notes-library-heading h3{font-size:25px}.notes-upload-button{width:100%}.notes-tools{grid-template-columns:1fr 1fr;gap:9px}.notes-search{grid-column:1/-1}.notes-filter select{font-size:9px}.notes-view-toggle{grid-column:1/-1;justify-self:start}.notes-results{margin-top:14px}.notes-library-list{grid-template-columns:1fr}.saved-note{gap:8px;padding:11px;min-height:78px;flex-wrap:wrap}.saved-note-info{min-width:110px}.saved-note-info b{font-size:10px}.saved-note-actions,.note-file-actions,.note-owner-actions{gap:3px}.saved-note-actions{margin-left:auto}.note-icon-action{width:29px;height:29px}.note-owner-actions .note-action{padding:6px;font-size:8px}.note-reader-heading h2{font-size:25px}.note-pdf-viewer{height:75vh;min-height:360px}.note-image-preview{min-height:240px;padding:8px}.notes-section#notes.reader-open{padding-top:30px}.notes-signin-state{padding:22px 14px}.notes-state-actions{flex-direction:column;width:100%}.notes-state-actions button{width:100%}}
 @media(prefers-reduced-motion:reduce){.page-view-enter,.loading-dot{animation:none!important}.course-card:hover,.course-lesson:hover{transform:none}}
+:root{color-scheme:dark;--ink:#e8f0eb;--muted:#a0aea7;--green:#74d7a3;--green-dark:#43b980;--mint:#20372e;--paper:#111a20;--line:#2b3a40;--lilac:#282638;--yellow:#342d20}
+body{background:#0f171c;color:#e8f0eb}
+.site-header{background:#111b22;border-color:#26353b;box-shadow:0 8px 28px #050b0f33}
+.brand-mark{background:linear-gradient(135deg,#81e0ad,#35a977);color:#0d2117;box-shadow:0 5px 18px #48c4892b}
+.brand-light{color:#9ab6a5}
+.main-nav a{color:#bdc8c1}
+.main-nav a.active,.main-nav a:hover{background:#20372e;color:#8de4b2}
+.login-button,.quiet-link{color:#c4d0c9}
+.login-button:hover,.quiet-link:hover{color:#85dfad}
+.small-primary,.primary-button{background:#74d7a3;color:#10231a;box-shadow:0 7px 20px #4dc88a20}
+.small-primary:hover,.primary-button:hover{background:#91e7b8;color:#0c2016}
+.outline-button{background:#162229;border-color:#34443f;color:#dce7df}
+.hero-description,.section-intro>p,.notes-intro p,.benefits-lede{color:#a2afa9}
+.hero-visual{background:linear-gradient(145deg,#182831 0%,#1b302b 58%,#302b20 100%)}
+.visual-glow{background:#203a32}
+.hero-orbit{border-color:#344a42}
+.sun-disc{background:#e8bf73}
+.hill-back{background:#294238}
+.hill-front{background:#355243}
+.plant b{background:#83bd83}
+.plant i{background:#9bcb88}
+.hero-caption,.floating-note{background:#18262d;border-color:#33443e;box-shadow:0 10px 28px #050b0d5c;color:#e5eee8}
+.caption-icon,.note-check{background:#223c32;color:#8fe0af}
+.note-emoji{background:#3b3324;color:#efc77d}
+.book-page{background:#1d2d2a;color:#cae1ce;border-color:#374b40}
+.book-page i{background:#476155}
+.book-mark{color:#8ed5a2}
+.book-scribble{color:#e2b786}
+.book-spine{background:#36483d}
+.trust-strip,.stats-band{background:#141f25;border-color:#29383d}
+.trust-strip b{color:#d3dfd7}
+.trust-strip>span,.stats-band span{color:#92a19a}
+.trust-strip i,.stats-band>i,.stats-band strong,.benefit-list>div>span{color:#82dba9}
+.course-lilac{background:linear-gradient(135deg,#282638,#242b37)}
+.course-yellow{background:linear-gradient(135deg,#342d20,#2b2a24)}
+.course-green{background:linear-gradient(135deg,#1d342d,#1c302e)}
+.course-card{border:1px solid #35413d}
+.course-card h3{color:#edf3ef}
+.course-card>p,.course-tag,.course-bottom{color:#a7b3ad}
+.course-icon,.course-bottom a{background:#ffffff10;border-color:#ffffff24;color:#c1d5ca}
+.art-code{background:#302e42;box-shadow:-9px 8px #242b37}
+.art-code span{color:#a89be0}
+.art-math{color:#d6af63}
+.art-science{border-color:#80ad8a;color:#9ad1a0}
+.benefits-visual{background:#17242a}
+.benefits-visual:before{border-color:#2a3d39}
+.benefit-card{background:#1d2a30;box-shadow:0 11px 26px #050a0e55;color:#e5eee8}
+.progress-ring{border-color:#31433b;border-top-color:#77d6a2;border-right-color:#77d6a2;color:#a2e7b8}
+.progress-ring small,.benefit-card small,.benefit-list small{color:#9aa9a1}
+.tiny-check{background:#223b30;color:#8de0ac}
+.benefits-paper{background:#e7e2cc;color:#4b5e4a}
+.benefits-plant b{background:#669c70}
+.benefits-plant i{background:#8bb47d}
+.notes-section#notes{background:linear-gradient(135deg,#111b22 0%,#142127 56%,#15261f 100%)}
+.notes-library-wrap{border-color:#2d3c41}
+.notes-library-heading h3,.note-reader-heading h2{color:#edf3ef}
+.notes-library-heading p,.notes-results,.notes-reader-heading p{color:#9aa8a1}
+.notes-library-tabs{border-color:#2a3a3f}
+.notes-tab{color:#9aa8a1}
+.notes-tab.active{color:#8de2b0;border-color:#74d7a3}
+.notes-search,.notes-filter select,.notes-view-toggle{background:#152229;border-color:#34443f;color:#e0e9e3}
+.notes-search svg{stroke:#9eafa5}
+.notes-search input{color:#e8f0eb}
+.notes-search input::placeholder{color:#819087}
+.notes-search:focus-within,.notes-filter select:focus{border-color:#70c994;box-shadow:0 0 0 3px #74d7a320}
+.notes-filter span{color:#a1afa7}
+.notes-filter select option{background:#152229;color:#e8f0eb}
+.notes-view-toggle{color:#c4d0c9}
+.notes-view-toggle span,.notes-results span:first-child{color:#80dca8}
+.saved-note{background:#1a272d;border-color:#30413e;box-shadow:0 6px 18px #060c1040}
+.saved-note:hover{background:#1c2c31;border-color:#436254;box-shadow:0 12px 26px #050c104d}
+.saved-note-icon{background:#203a30;color:#91e0ad}
+.saved-note-info b{color:#e8f0eb}
+.saved-note-info small{color:#a0aea7}
+.note-icon-action,.note-download-link,.note-action{background:#18262c;border-color:#354741;color:#8de0ad}
+.note-icon-action:hover,.note-download-link:hover,.note-action:hover{background:#223b30;border-color:#4e7d61}
+.note-owner-actions .note-action{color:#9de5b6}
+.delete-action{color:#f19a9c!important;border-color:#5c3d42!important}
+.notes-empty-state,.notes-signin-state,.notes-error-state{background:#17242a;border-color:#405249}
+.notes-empty-state>span,.notes-state-icon{background:#203a30;color:#8de0ad}
+.notes-empty-state b,.notes-signin-state h3,.notes-error-state b{color:#e8f0eb}
+.notes-empty-state small,.notes-signin-state p,.notes-error-state p{color:#a1afa7}
+.notes-loading{color:#a4b1aa}
+.loading-dot{background:#74d7a3;box-shadow:0 0 0 5px #74d7a31c}
+.notes-section.reader-open .notes-library-wrap{border-color:transparent}
+.note-back-button{color:#90e0b1}
+.note-reader-heading p{color:#9baaa2}
+.note-pdf-viewer{background:#fff;border-color:#34443f;box-shadow:0 10px 32px #050a0e66}
+.pdf-viewer-hint{color:#a2afa8}
+.note-image-preview{background:#131f25;border-color:#30413e}
+.note-view-toolbar .note-download-link{background:#1a292e}
+.paper-back{background:#d4d0b7;color:#52644e}
+.paper-front{background:#f0eddd;color:#465f4d}
+.upload-badge{background:#1a292f;color:#8de0ad;box-shadow:0 8px 24px #050b0e66}
+.upload-badge small{color:#bdc9c2}
+.paper-front h4{color:#435947}
+.paper-subject{color:#66896c}
+.handwritten-lines i,.scribble-lines:before,.scribble-lines:after{background:#9cae98}
+.leaf-doodle{color:#7d9e76}
+.paper-doodle{color:#d7ad5f}
+.notes-bottom{border-color:#2d3b40;color:#9aa8a1}
+.notes-bottom b{color:#8bdca8}
+.notes-bottom i{color:#607269}
+.quote-section{background:#14211f;color:#e8f0eb}
+.quote-section blockquote{color:#d9e5dd}
+.quote-by small{color:#a0aea7}
+.quote-avatar{background:#244033;color:#a1e1b6}
+.quote-decoration{color:#1d302c}
+.final-cta{background:linear-gradient(135deg,#1b2d29,#1b2934 62%,#2b291f);color:#e8f0eb}
+.final-cta p{color:#a5b1aa}
+.cta-sun{background:#253d32;color:#8de0ad}
+.cta-doodle{color:#35463b}
+.site-footer{background:#111b22;border-color:#28373d;color:#dfe8e2}
+.footer-brand p,.footer-col a,.footer-bottom{color:#9aa9a1}
+.footer-col b{color:#e0e9e3}
+.footer-note{border-color:#2c3c40}
+.footer-note>span,.footer-col a:hover{color:#8cdbab}
+.footer-note p{color:#cbd8d0}
+.footer-bottom{border-color:#2b393e}
+.social-row a{border-color:#35453f;color:#9bd9ad}
+.modal-backdrop{background:#05090dcc}
+.modal{background:#18242b;color:#e8f0eb;border:1px solid #30413f;box-shadow:0 24px 70px #0009}
+.modal h2{color:#eef3ef}
+.modal-copy{color:#a4b1aa}
+.modal-close{background:#26353a;color:#dce7df}
+.form-field span{color:#dce7df}
+.form-field input,.form-field select,.form-field textarea{background:#111d23;border-color:#34443f;color:#e8f0eb}
+.form-field input::placeholder,.form-field textarea::placeholder{color:#87958d}
+.form-field input:focus,.form-field select:focus,.form-field textarea:focus{border-color:#74d7a3;box-shadow:0 0 0 3px #74d7a320}
+.modal-switch{color:#a6b2ab}
+.modal-switch button{color:#8de0ad}
+.form-note,.fine-print{color:#9ba9a2}
+.upload-drop{background:#172a25;border-color:#456852}
+.upload-drop strong{color:#e5eee8}
+.upload-drop small{color:#a2b0a8}
+.upload-drop button{background:#244334;color:#a4e5b9}
+.file-list{color:#a5dfb2}
+.course-lesson{background:#19272d;border-color:#30413e;color:#e4ede7}
+.course-lesson:hover{background:#20332e;border-color:#456b54}
+.lesson-number{background:#21382e;color:#91dfad}
+.course-lesson small{color:#a0aea7}
+.lesson-code{background:#111d23;border-color:#30413e;color:#a4dfb2}
+.back-to-course{color:#8de0ad}
+.toast{background:#263a30;color:#f1f6f2}
+.toast-error{background:#8d403b}
+.main-nav a:focus-visible,.primary-button:focus-visible,.outline-button:focus-visible,.note-icon-action:focus-visible,.note-action:focus-visible,.notes-tab:focus-visible,.notes-view-toggle:focus-visible{outline-color:#91e0ad}
+::selection{background:#74d7a355;color:#f4fff7}
+@media(max-width:680px){.main-nav.open{background:#111b22}.main-nav a.active{color:#8de0ad}.main-nav a{color:#d0dad4}.notes-search,.notes-filter select,.notes-view-toggle{background:#152229}.notes-library-heading h3{color:#edf3ef}}
